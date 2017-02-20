@@ -1,7 +1,9 @@
-package winrm
+package dns
 
 import (
+	"encoding/base64"
 	"fmt"
+
 	"github.com/masterzen/winrm"
 )
 
@@ -18,11 +20,11 @@ type Output struct {
 	exitcode int
 }
 
-func GenerateConfig(sn, un, pw string) *Config {
+func GenerateConfig(sn, un, pwd string) *Config {
 	return &Config{
 		ServerName: sn,
 		Username:   un,
-		Password:   pw,
+		Password:   pwd,
 	}
 }
 
@@ -45,4 +47,14 @@ func (c *Config) ExecutePowerShellScript(pscript string) (*Output, error) {
 	}
 
 	return &Output{stdout: out, stderr: outerr, exitcode: exitcode}, nil
+}
+
+func Powershell(psCmd string) string {
+	wideCmd := ""
+	for _, b := range []byte(psCmd) {
+		wideCmd += string(b) + "\x00"
+	}
+	input := []uint8(wideCmd)
+	encodedCmd := base64.StdEncoding.EncodeToString(input)
+	return fmt.Sprintf("powershell.exe -EncodedCommand %s", encodedCmd)
 }
