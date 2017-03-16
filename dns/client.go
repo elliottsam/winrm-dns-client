@@ -7,7 +7,7 @@ import (
 	"github.com/masterzen/winrm"
 )
 
-type Config struct {
+type Client struct {
 	ServerName string
 	Username   string
 	Password   string
@@ -20,15 +20,15 @@ type Output struct {
 	exitcode int
 }
 
-func GenerateConfig(sn, un, pwd string) *Config {
-	return &Config{
+func GenerateClient(sn, un, pwd string) *Client {
+	return &Client{
 		ServerName: sn,
 		Username:   un,
 		Password:   pwd,
 	}
 }
 
-func (c *Config) ConfigureWinRMClient() error {
+func (c *Client) ConfigureWinRMClient() error {
 	endpoint := winrm.NewEndpoint(c.ServerName, 5985, false, false, nil, nil, nil, 0)
 	client, err := winrm.NewClient(endpoint, c.Username, c.Password)
 	if err != nil {
@@ -39,7 +39,7 @@ func (c *Config) ConfigureWinRMClient() error {
 	return nil
 }
 
-func (c *Config) ExecutePowerShellScript(pscript string) (*Output, error) {
+func (c *Client) ExecutePowerShellScript(pscript string) (*Output, error) {
 	command := winrm.Powershell(pscript)
 	out, outerr, exitcode, err := c.Client.RunWithString(command, "")
 	if err != nil {

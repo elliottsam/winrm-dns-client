@@ -14,7 +14,9 @@
 
 package main
 
-import "github.com/elliottsam/winrm-dns-client/cmd"
+import (
+	"github.com/elliottsam/winrm-dns-client/cmd"
+)
 
 func main() {
 	cmd.Execute()

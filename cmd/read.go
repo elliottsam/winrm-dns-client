@@ -16,38 +16,41 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/elliottsam/winrm-dns-client/dns"
 	"github.com/spf13/cobra"
+)
+
+var (
+	dnszone string
+	name    string
 )
 
 // readCmd represents the read command
 var readCmd = &cobra.Command{
 	Use:   "read",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Reads a DNS record from the specified zone",
+	Long: `Reads either single A or CNAME records or all A and CNAME records
+from a Microsoft DNS Zone
+`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// TODO: Work your own magic here
-		fmt.Println("read called")
+		if dnszone == "" {
+			fmt.Println("DnsZone is a required parameter")
+			os.Exit(1)
+		}
+		ClientConfig.ConfigureWinRMClient()
+		resp := dns.ReadRecord(ClientConfig, dnszone, name)
+		dns.OutputTable(resp)
 	},
-	\
 }
 
 func init() {
+
 	RootCmd.AddCommand(readCmd)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// readCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// readCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	readCmd.PersistentFlags().StringVarP(&dnszone, "DnsZone", "d", "", "DNS Zone to read against, this is required")
+	readCmd.PersistentFlags().StringVarP(&name, "Name", "n", "", "Name of record to lookup")
+	readCmd.MarkPersistentFlagRequired("DnsZone")
 
 }
