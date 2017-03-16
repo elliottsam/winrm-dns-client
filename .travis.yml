@@ -1,0 +1,10 @@
+language: go
+go:
+  - 1.7.5
+
+before_install:
+  - go get -v github.com/golang/lint/golint
+
+script:
+  - ./pre-commit
+  - go test -v ./...
