@@ -24,6 +24,8 @@ import (
 )
 
 var cfgFile string
+
+// ClientConfig is the WinRM client required to access MS DNS servers
 var ClientConfig dns.Client
 
 // RootCmd represents the base command when called without any subcommands

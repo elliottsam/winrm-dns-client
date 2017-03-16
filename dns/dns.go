@@ -12,6 +12,7 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
+// Record containing information regarding DNS record
 type Record struct {
 	Dnszone string
 	Name    string
@@ -20,8 +21,9 @@ type Record struct {
 	TTL     float64
 }
 
+// ReadRecord performs DNS Record lookup from server
 func ReadRecord(c Client, dnszone string, name string) *[]Record {
-	// Powershell script template to read record from DNS
+	// powershell script template to read record from DNS
 	const tmplpscript = `
 Get-DnsServerResourceRecord -ZoneName {{.Dnszone}}{{ if .Name }} -Name {{.Name}}{{end}} | ?{$_.RecordType -eq 'A' -or $_.RecordType -eq 'CNAME'} | select DistinguishedName, HostName, RecordData, RecordType, TimeToLive | ConvertTo-Json
 `
@@ -33,11 +35,11 @@ Get-DnsServerResourceRecord -ZoneName {{.Dnszone}}{{ if .Name }} -Name {{.Name}}
 	if err != nil {
 		log.Fatal(fmt.Errorf("%v", err))
 	}
-	command := Powershell(pscript)
+	command := powershell(pscript)
 
 	output, err := c.ExecutePowerShellScript(command)
 	if err != nil {
-		log.Fatal(fmt.Errorf("Error running PowerShell script: %v\n", err))
+		log.Fatalln(fmt.Errorf("Error running PowerShell script: %v", err))
 	}
 	output.stdout = makeResponseArray(output.stdout)
 	resp, err := unmarshalResponse(output.stdout)
@@ -51,11 +53,11 @@ func tmplExec(r Record, tp string) (string, error) {
 	t := template.New("tmpl")
 	t, err := t.Parse(tp)
 	if err != nil {
-		return "", fmt.Errorf("Error parsing template: %v\n", err)
+		return "", fmt.Errorf("Error parsing template: %v", err)
 	}
 	var result bytes.Buffer
 	if err := t.Execute(&result, r); err != nil {
-		return "", fmt.Errorf("Error generating template: %v\n", err)
+		return "", fmt.Errorf("Error generating template: %v", err)
 	}
 
 	return result.String(), nil
@@ -104,6 +106,7 @@ func makeResponseArray(r string) string {
 	return r
 }
 
+//OutputTable a table containing DNS entries
 func OutputTable(rec *[]Record) {
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"DnsZone", "Name", "Type", "Value", "TTL"})
