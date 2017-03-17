@@ -1,15 +1,8 @@
 package dns
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"log"
-	"os"
-	"strings"
-	"text/template"
-
-	"github.com/olekukonko/tablewriter"
 )
 
 // Record containing information regarding DNS record
@@ -19,19 +12,17 @@ type Record struct {
 	Type    string
 	Value   string
 	TTL     float64
+	Id      string
 }
 
 // ReadRecord performs DNS Record lookup from server
-func ReadRecord(c Client, dnszone string, name string) *[]Record {
+func ReadRecord(c *Client, rec Record) []Record {
 	// powershell script template to read record from DNS
 	const tmplpscript = `
 Get-DnsServerResourceRecord -ZoneName {{.Dnszone}}{{ if .Name }} -Name {{.Name}}{{end}} | ?{$_.RecordType -eq 'A' -or $_.RecordType -eq 'CNAME'} | select DistinguishedName, HostName, RecordData, RecordType, TimeToLive | ConvertTo-Json
 `
-	r := Record{
-		Dnszone: dnszone,
-		Name:    name,
-	}
-	pscript, err := tmplExec(r, tmplpscript)
+
+	pscript, err := tmplExec(rec, tmplpscript)
 	if err != nil {
 		log.Fatal(fmt.Errorf("%v", err))
 	}
@@ -46,72 +37,37 @@ Get-DnsServerResourceRecord -ZoneName {{.Dnszone}}{{ if .Name }} -Name {{.Name}}
 	if err != nil {
 		log.Fatal(err)
 	}
-	return convertResponse(resp, dnszone)
+	return *convertResponse(resp, rec)
 }
 
-func tmplExec(r Record, tp string) (string, error) {
-	t := template.New("tmpl")
-	t, err := t.Parse(tp)
-	if err != nil {
-		return "", fmt.Errorf("Error parsing template: %v", err)
-	}
-	var result bytes.Buffer
-	if err := t.Execute(&result, r); err != nil {
-		return "", fmt.Errorf("Error generating template: %v", err)
-	}
-
-	return result.String(), nil
-}
-
-func unmarshalResponse(resp string) ([]interface{}, error) {
-	var data interface{}
-	if err := json.Unmarshal([]byte(resp), &data); err != nil {
-		return nil, fmt.Errorf("Error unmarshalling json: %v", err)
-	}
-	return data.([]interface{}), nil
-}
-
-func convertResponse(r []interface{}, dnsZone string) *[]Record {
-	records := []Record{}
-	for i := range r {
-		var rec Record
-		switch r[i].(map[string]interface{})["RecordData"].(map[string]interface{})["CimInstanceProperties"].(type) {
-		case []interface{}:
-			rec = Record{
-				Dnszone: dnsZone,
-				Name:    r[i].(map[string]interface{})["HostName"].(string),
-				Type:    r[i].(map[string]interface{})["RecordType"].(string),
-				Value:   strings.Split(r[i].(map[string]interface{})["RecordData"].(map[string]interface{})["CimInstanceProperties"].([]interface{})[0].(string), "\"")[1],
-				TTL:     r[i].(map[string]interface{})["TimeToLive"].(map[string]interface{})["TotalSeconds"].(float64),
-			}
-		case string:
-			rec = Record{
-				Dnszone: dnsZone,
-				Name:    r[i].(map[string]interface{})["HostName"].(string),
-				Type:    r[i].(map[string]interface{})["RecordType"].(string),
-				Value:   strings.Split(r[i].(map[string]interface{})["RecordData"].(map[string]interface{})["CimInstanceProperties"].(string), "\"")[1],
-				TTL:     r[i].(map[string]interface{})["TimeToLive"].(map[string]interface{})["TotalSeconds"].(float64),
-			}
+// CreateRecord creates new DNS records on server
+func CreateRecord(c *Client, rec Record) (Record, error) {
+	const tmplscriptA = `
+Add-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} -A -IpAddress {{ .Value }} -TimeToLive (New-TimeSpan -Seconds {{ .TTL }}
+`
+	const tmplscriptCname = `
+Add-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} -CName -HostNameAlias {{ .Value }} -TimeToLive (New-TimeSpan -Seconds {{ .TTL }})
+`
+	var (
+		pscript string
+		err     error
+	)
+	switch rec.Type {
+	case "A":
+		pscript, err = tmplExec(rec, tmplscriptA)
+		if err != nil {
+			return nil, fmt.Errorf("Error creating template: %v", err)
 		}
-		records = append(records, rec)
-
+	case "CNAME":
+		pscript, err = tmplExec(rec, tmplscriptCname)
+		if err != nil {
+			return nil, fmt.Errorf("Error creating template: %v", err)
+		}
 	}
-	return &records
-}
-
-func makeResponseArray(r string) string {
-	if rune(r[0]) != '[' && rune(r[(len(r)-1)]) != ']' {
-		return fmt.Sprintf("[%s]", r)
+	command := powershell(pscript)
+	_, err = c.ExecutePowerShellScript(command)
+	if err != nil {
+		return nil, fmt.Errorf("Error executing PowerShell script: %v", err)
 	}
-	return r
-}
-
-//OutputTable a table containing DNS entries
-func OutputTable(rec *[]Record) {
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"DnsZone", "Name", "Type", "Value", "TTL"})
-	for _, v := range *rec {
-		table.Append([]string{v.Dnszone, v.Name, v.Type, v.Value, v.Type})
-	}
-	table.Render()
+	return ReadRecord(c, rec)[0], nil
 }

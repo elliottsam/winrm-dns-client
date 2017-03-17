@@ -78,7 +78,6 @@ func initConfig() {
 	// If a config file is found, read it in.
 	_ = viper.ReadInConfig()
 
-	ClientConfig.ServerName = viper.GetString("servername")
-	ClientConfig.Username = viper.GetString("username")
-	ClientConfig.Password = viper.GetString("password")
+	&ClientConfig = dns.GenerateClient(viper.GetString("servername"), viper.GetString("username"), viper.GetString("password"))
+	ClientConfig.ConfigureWinRMClient()
 }

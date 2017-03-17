@@ -39,8 +39,12 @@ from a Microsoft DNS Zone
 			fmt.Println("DnsZone is a required parameter")
 			os.Exit(1)
 		}
-		ClientConfig.ConfigureWinRMClient()
-		resp := dns.ReadRecord(ClientConfig, dnszone, name)
+
+		rec := &dns.Record{
+			Dnszone: dnszone,
+			Name:    name,
+		}
+		resp := dns.ReadRecord(&ClientConfig, rec)
 		dns.OutputTable(resp)
 	},
 }
