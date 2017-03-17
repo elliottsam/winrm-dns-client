@@ -56,18 +56,18 @@ Add-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} -CName -H
 	case "A":
 		pscript, err = tmplExec(rec, tmplscriptA)
 		if err != nil {
-			return nil, fmt.Errorf("Error creating template: %v", err)
+			return Record{}, fmt.Errorf("Error creating template: %v", err)
 		}
 	case "CNAME":
 		pscript, err = tmplExec(rec, tmplscriptCname)
 		if err != nil {
-			return nil, fmt.Errorf("Error creating template: %v", err)
+			return Record{}, fmt.Errorf("Error creating template: %v", err)
 		}
 	}
 	command := powershell(pscript)
 	_, err = c.ExecutePowerShellScript(command)
 	if err != nil {
-		return nil, fmt.Errorf("Error executing PowerShell script: %v", err)
+		return Record{}, fmt.Errorf("Error executing PowerShell script: %v", err)
 	}
 	return ReadRecord(c, rec)[0], nil
 }
