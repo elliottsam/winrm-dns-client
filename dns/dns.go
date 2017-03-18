@@ -28,7 +28,7 @@ Get-DnsServerResourceRecord -ZoneName {{.Dnszone}}{{ if .Name }} -Name {{.Name}}
 	}
 	output, err := c.ExecutePowerShellScript(pscript)
 	if err != nil {
-		return []Record{}, fmt.Errorf("Error running PowerShell script: %v\nStdErr: %v", err)
+		return []Record{}, fmt.Errorf("Error running PowerShell script: %v", err)
 	}
 	output.stdout = makeResponseArray(output.stdout)
 	resp, err := unmarshalResponse(output.stdout)
@@ -38,6 +38,7 @@ Get-DnsServerResourceRecord -ZoneName {{.Dnszone}}{{ if .Name }} -Name {{.Name}}
 	return *convertResponse(resp, rec), nil
 }
 
+// ReadRecordfromID retrieves specifc DNS record based on record ID
 func ReadRecordfromID(c *Client, recID string) (Record, error) {
 	id := strings.Split(recID, "|")
 	if len(id) != 3 {
@@ -92,7 +93,7 @@ Add-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} -CName -H
 	fmt.Println(pscript)
 	_, err = c.ExecutePowerShellScript(pscript)
 	if err != nil {
-		return []Record{}, fmt.Errorf("Error executing PowerShell script: %v\nStdErr: %v", err)
+		return []Record{}, fmt.Errorf("Error executing PowerShell script: %v", err)
 	}
 	record, err := ReadRecordfromID(c, rec.ID)
 	if err != nil {
@@ -105,6 +106,7 @@ Add-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} -CName -H
 	return result, nil
 }
 
+// RecordExist returns if record exists or not
 func RecordExist(c *Client, rec Record) bool {
 	records, _ := ReadRecord(c, rec)
 	if len(records) > 0 {
