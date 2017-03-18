@@ -24,13 +24,13 @@ import (
 	"github.com/spf13/viper"
 )
 
-// readCmd represents the read command
-var readCmd = &cobra.Command{
-	Use:   "read",
-	Short: "Reads a DNS record from the specified zone",
-	Long: `Reads either single A or CNAME records or all A and CNAME records
-from a Microsoft DNS Zone
-`,
+// createCmd represents the create command
+var createCmd = &cobra.Command{
+	Use:   "create",
+	Short: "Creates a DNS record on Windows server",
+	Long: `Creates a DNS record on Windows server
+	configured in the configuration file, all flags except
+	TTL are required.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if dnsZone == "" {
 			fmt.Println("DnsZone is a required parameter")
@@ -40,24 +40,28 @@ from a Microsoft DNS Zone
 		rec := dns.Record{
 			Dnszone: dnsZone,
 			Name:    name,
+			Type:    recordType,
+			Value:   value,
+			TTL:     ttl,
 		}
 		ClientConfig := dns.GenerateClient(viper.GetString("servername"), viper.GetString("username"), viper.GetString("password"))
 		ClientConfig.ConfigureWinRMClient()
 
-		resp, err := dns.ReadRecord(&ClientConfig, rec)
+		record, err := dns.CreateRecord(&ClientConfig, rec)
 		if err != nil {
-			log.Fatal("Error:", err)
+			log.Fatalln("Error creating DNS record:", err)
 		}
-		dns.OutputTable(resp)
+		dns.OutputTable(record)
 	},
 }
 
 func init() {
+	RootCmd.AddCommand(createCmd)
 
-	RootCmd.AddCommand(readCmd)
-
-	readCmd.PersistentFlags().StringVarP(&dnsZone, "DnsZone", "d", "", "DNS Zone to read against, this is required")
-	readCmd.PersistentFlags().StringVarP(&name, "Name", "n", "", "Name of record to lookup")
-	readCmd.MarkPersistentFlagRequired("DnsZone")
-
+	createCmd.PersistentFlags().StringVarP(&dnsZone, "DnsZone", "d", "", "DNS Zone to create record for, this is required")
+	createCmd.PersistentFlags().StringVarP(&name, "Name", "n", "", "Name of record to create, this is required")
+	createCmd.PersistentFlags().StringVarP(&recordType, "Type", "t", "", "Type of DNS record to create, this is required")
+	createCmd.PersistentFlags().StringVarP(&value, "Value", "v", "", "Value of DNS record, this is required")
+	createCmd.PersistentFlags().Float64VarP(&ttl, "TTL", "l", 900, "TTL for record in seconds")
+	createCmd.MarkPersistentFlagRequired("DnsZone")
 }

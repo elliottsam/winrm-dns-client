@@ -18,29 +18,30 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/elliottsam/winrm-dns-client/dns"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-var cfgFile string
+var (
+	cfgFile string
 
-// ClientConfig is the WinRM client required to access MS DNS servers
-var ClientConfig dns.Client
+	dnsZone    string
+	name       string
+	recordType string
+	value      string
+	ttl        float64
+)
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "winrm-dns-client",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Short: "CLI tool for interacting with Microsoft DNS Servers",
+	Long: `winrm-dns-client allows retrieving, creating and updating
+	of DNS records on Microsoft DNS servers
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	//	Run: func(cmd *cobra.Command, args []string) { },
+	At present this requires the server to have WinRM configured and
+	also be running at least Windows Server 2012 and have the dnsserver
+	PowerShell module installed`,
 }
 
 // Execute adds all child commands to the root command sets flags appropriately.
@@ -54,15 +55,7 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-
-	// Here you will define your flags and configuration settings.
-	// Cobra supports Persistent Flags, which, if defined here,
-	// will be global for your application.
-
 	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.winrm-dns-client.yaml)")
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	//RootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -78,7 +71,4 @@ func initConfig() {
 	// If a config file is found, read it in.
 	_ = viper.ReadInConfig()
 
-	ClientConfig.ServerName = viper.GetString("servername")
-	ClientConfig.Username = viper.GetString("username")
-	ClientConfig.Password = viper.GetString("password")
 }
