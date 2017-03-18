@@ -48,13 +48,13 @@ func TestUnmarshalResponse(t *testing.T) {
 
 func TestConvertResponse(t *testing.T) {
 	resp, _ := unmarshalResponse(test1)
-	rec := convertResponse(resp, "test.local")
+	rec := convertResponse(resp, Record{Dnszone: "test.local"})
 	if len(*rec) != 1 {
 		t.Errorf("Expecting 1 record to be returned, got %v: %v", len(*rec), rec)
 	}
 
 	resp, _ = unmarshalResponse(test2)
-	rec = convertResponse(resp, "test.local")
+	rec = convertResponse(resp, Record{Dnszone: "test.local"})
 	if len(*rec) != 2 {
 		t.Errorf("Expecting 2 record to be returned, got %v: %v", len(*rec), rec)
 	}

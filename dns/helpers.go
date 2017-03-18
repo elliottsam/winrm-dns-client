@@ -34,27 +34,29 @@ func unmarshalResponse(resp string) ([]interface{}, error) {
 	return data.([]interface{}), nil
 }
 
-func convertResponse(r []interface{}, rec Record) *[]Record {
+func convertResponse(r []interface{}, origrec Record) *[]Record {
 	records := []Record{}
 	for i := range r {
 		var rec Record
 		switch r[i].(map[string]interface{})["RecordData"].(map[string]interface{})["CimInstanceProperties"].(type) {
 		case []interface{}:
 			rec = Record{
-				Dnszone: rec.Dnszone,
+				Dnszone: origrec.Dnszone,
 				Name:    r[i].(map[string]interface{})["HostName"].(string),
 				Type:    r[i].(map[string]interface{})["RecordType"].(string),
 				Value:   strings.Split(r[i].(map[string]interface{})["RecordData"].(map[string]interface{})["CimInstanceProperties"].([]interface{})[0].(string), "\"")[1],
 				TTL:     r[i].(map[string]interface{})["TimeToLive"].(map[string]interface{})["TotalSeconds"].(float64),
 			}
+			rec.ID = fmt.Sprintf("%s|%s|%s", rec.Dnszone, rec.Name, rec.Value)
 		case string:
 			rec = Record{
-				Dnszone: rec.Dnszone,
+				Dnszone: origrec.Dnszone,
 				Name:    r[i].(map[string]interface{})["HostName"].(string),
 				Type:    r[i].(map[string]interface{})["RecordType"].(string),
 				Value:   strings.Split(r[i].(map[string]interface{})["RecordData"].(map[string]interface{})["CimInstanceProperties"].(string), "\"")[1],
 				TTL:     r[i].(map[string]interface{})["TimeToLive"].(map[string]interface{})["TotalSeconds"].(float64),
 			}
+			rec.ID = fmt.Sprintf("%s|%s|%s", rec.Dnszone, rec.Name, rec.Value)
 		}
 		records = append(records, rec)
 
@@ -70,11 +72,11 @@ func makeResponseArray(r string) string {
 }
 
 //OutputTable a table containing DNS entries
-func OutputTable(rec *[]Record) {
+func OutputTable(rec []Record) {
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"DnsZone", "Name", "Type", "Value", "TTL"})
-	for _, v := range *rec {
-		table.Append([]string{v.Dnszone, v.Name, v.Type, v.Value, v.Type})
+	table.SetHeader([]string{"DnsZone", "Name", "Type", "Value", "TTL", "ID"})
+	for _, v := range rec {
+		table.Append([]string{v.Dnszone, v.Name, v.Type, v.Value, fmt.Sprint(v.TTL), v.ID})
 	}
 	table.Render()
 }

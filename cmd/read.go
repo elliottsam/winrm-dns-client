@@ -16,15 +16,12 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/elliottsam/winrm-dns-client/dns"
 	"github.com/spf13/cobra"
-)
-
-var (
-	dnszone string
-	name    string
+	"github.com/spf13/viper"
 )
 
 // readCmd represents the read command
@@ -35,16 +32,22 @@ var readCmd = &cobra.Command{
 from a Microsoft DNS Zone
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		if dnszone == "" {
+		if dnsZone == "" {
 			fmt.Println("DnsZone is a required parameter")
 			os.Exit(1)
 		}
 
-		rec := &dns.Record{
-			Dnszone: dnszone,
+		rec := dns.Record{
+			Dnszone: dnsZone,
 			Name:    name,
 		}
-		resp := dns.ReadRecord(&ClientConfig, rec)
+		ClientConfig := dns.GenerateClient(viper.GetString("servername"), viper.GetString("username"), viper.GetString("password"))
+		ClientConfig.ConfigureWinRMClient()
+
+		resp, err := dns.ReadRecord(&ClientConfig, rec)
+		if err != nil {
+			log.Fatal("Error:", err)
+		}
 		dns.OutputTable(resp)
 	},
 }
@@ -53,7 +56,7 @@ func init() {
 
 	RootCmd.AddCommand(readCmd)
 
-	readCmd.PersistentFlags().StringVarP(&dnszone, "DnsZone", "d", "", "DNS Zone to read against, this is required")
+	readCmd.PersistentFlags().StringVarP(&dnsZone, "DnsZone", "d", "", "DNS Zone to read against, this is required")
 	readCmd.PersistentFlags().StringVarP(&name, "Name", "n", "", "Name of record to lookup")
 	readCmd.MarkPersistentFlagRequired("DnsZone")
 
