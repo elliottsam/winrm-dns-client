@@ -16,11 +16,11 @@ func tmplExec(r Record, tp string) (string, error) {
 	t := template.New("tmpl")
 	t, err := t.Parse(tp)
 	if err != nil {
-		return "", fmt.Errorf("Error parsing template: %v", err)
+		return "", fmt.Errorf("Parsing template: %v", err)
 	}
 	var result bytes.Buffer
 	if err := t.Execute(&result, r); err != nil {
-		return "", fmt.Errorf("Error generating template: %v", err)
+		return "", fmt.Errorf("Generating template: %v", err)
 	}
 
 	return result.String(), nil
@@ -29,7 +29,7 @@ func tmplExec(r Record, tp string) (string, error) {
 func unmarshalResponse(resp string) ([]interface{}, error) {
 	var data interface{}
 	if err := json.Unmarshal([]byte(resp), &data); err != nil {
-		return nil, fmt.Errorf("Error unmarshalling json: %v", err)
+		return nil, fmt.Errorf("Unmarshalling json: %v", err)
 	}
 	return data.([]interface{}), nil
 }
