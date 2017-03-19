@@ -21,6 +21,14 @@ servername: <name of dns server>
 username: <username to login>
 password: <password to login>
 ```
+There is the concept of IDs which allow for an easier way to keep track of DNS records, this allows
+for easier tracking of records, when this is used the type is worked out automatically.
+```
+<dns zone>|<record name>|<record value>
+i.e.
+test.local|test|10.0.0.1
+```
+
 To read all records within a zone
 ```
 winrm-dns-client read -d <domain-name>

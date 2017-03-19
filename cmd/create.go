@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/elliottsam/winrm-dns-client/dns"
 	"github.com/spf13/cobra"
@@ -32,15 +33,15 @@ var createCmd = &cobra.Command{
 	configured in the configuration file, all flags except
 	TTL are required.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if dnsZone == "" {
-			fmt.Println("DnsZone is a required parameter")
+		if dnsZone == "" || name == "" || recordType == "" || value == "" {
+			fmt.Println("Please provide all required parameters")
 			os.Exit(1)
 		}
 
 		rec := dns.Record{
 			Dnszone: dnsZone,
 			Name:    name,
-			Type:    recordType,
+			Type:    strings.ToUpper(recordType),
 			Value:   value,
 			TTL:     ttl,
 		}

@@ -7,16 +7,18 @@ import (
 
 // Record containing information regarding DNS record
 type Record struct {
-	Dnszone string
-	Name    string
-	Type    string
-	Value   string
-	TTL     float64
-	ID      string
+	Dnszone  string
+	Name     string
+	Type     string
+	Value    string
+	TTL      float64
+	ID       string
+	NewValue string
+	NewTTL   int64
 }
 
-// ReadRecord performs DNS Record lookup from server
-func ReadRecord(c *Client, rec Record) ([]Record, error) {
+// ReadRecords returns all DNS records matching query
+func ReadRecords(c *Client, rec Record) ([]Record, error) {
 	// powershell script template to read record from DNS
 	const tmplpscript = `
 Get-DnsServerResourceRecord -ZoneName {{.Dnszone}}{{ if .Name }} -Name {{.Name}}{{end}} | ?{$_.RecordType -eq 'A' -or $_.RecordType -eq 'CNAME'} | select DistinguishedName, HostName, RecordData, RecordType, TimeToLive | ConvertTo-Json
@@ -24,18 +26,46 @@ Get-DnsServerResourceRecord -ZoneName {{.Dnszone}}{{ if .Name }} -Name {{.Name}}
 
 	pscript, err := tmplExec(rec, tmplpscript)
 	if err != nil {
-		return []Record{}, fmt.Errorf("Error creating template: %v", err)
+		return []Record{}, fmt.Errorf("Creating template: %v", err)
 	}
 	output, err := c.ExecutePowerShellScript(pscript)
 	if err != nil {
-		return []Record{}, fmt.Errorf("Error running PowerShell script: %v", err)
+		return []Record{}, fmt.Errorf("Running PowerShell script: %v", err)
 	}
 	output.stdout = makeResponseArray(output.stdout)
 	resp, err := unmarshalResponse(output.stdout)
 	if err != nil {
-		return []Record{}, fmt.Errorf("Error unmarshalling response: %v", err)
+		return []Record{}, fmt.Errorf("Unmarshalling response: %v", err)
 	}
 	return *convertResponse(resp, rec), nil
+}
+
+// ReadRecord performs DNS Record lookup from server
+func ReadRecord(c *Client, rec Record) (Record, error) {
+	// powershell script template to read record from DNS
+	const tmplpscript = `
+Get-DnsServerResourceRecord -ZoneName {{.Dnszone}}{{ if .Name }} -Name {{.Name}}{{end}} | ?{$_.RecordType -eq 'A' -or $_.RecordType -eq 'CNAME'} | select DistinguishedName, HostName, RecordData, RecordType, TimeToLive | ConvertTo-Json
+`
+
+	pscript, err := tmplExec(rec, tmplpscript)
+	if err != nil {
+		return Record{}, fmt.Errorf("Creating template: %v", err)
+	}
+	output, err := c.ExecutePowerShellScript(pscript)
+	if err != nil {
+		return Record{}, fmt.Errorf("Running PowerShell script: %v", err)
+	}
+	output.stdout = makeResponseArray(output.stdout)
+	resp, err := unmarshalResponse(output.stdout)
+	if err != nil {
+		return Record{}, fmt.Errorf("Unmarshalling response: %v", err)
+	}
+	for _, v := range *convertResponse(resp, rec) {
+		if v.Value == rec.Value {
+			return v, nil
+		}
+	}
+	return Record{}, fmt.Errorf("Record not found: %s", rec.Name)
 }
 
 // ReadRecordfromID retrieves specifc DNS record based on record ID
@@ -49,7 +79,7 @@ func ReadRecordfromID(c *Client, recID string) (Record, error) {
 		Name:    id[1],
 		Value:   id[2],
 	}
-	result, err := ReadRecord(c, rec)
+	result, err := ReadRecords(c, rec)
 	if err != nil {
 		return Record{}, fmt.Errorf("Reading record: %v", err)
 	}
@@ -82,22 +112,21 @@ Add-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} -CName -H
 	case "A":
 		pscript, err = tmplExec(rec, tmplscriptA)
 		if err != nil {
-			return []Record{}, fmt.Errorf("Error creating template: %v", err)
+			return []Record{}, fmt.Errorf("Creating template: %v", err)
 		}
 	case "CNAME":
 		pscript, err = tmplExec(rec, tmplscriptCname)
 		if err != nil {
-			return []Record{}, fmt.Errorf("Error creating template: %v", err)
+			return []Record{}, fmt.Errorf("Creating template: %v", err)
 		}
 	}
-	fmt.Println(pscript)
 	_, err = c.ExecutePowerShellScript(pscript)
 	if err != nil {
-		return []Record{}, fmt.Errorf("Error executing PowerShell script: %v", err)
+		return []Record{}, fmt.Errorf("Executing PowerShell script: %v", err)
 	}
 	record, err := ReadRecordfromID(c, rec.ID)
 	if err != nil {
-		return []Record{}, fmt.Errorf("Error reading record: %v", err)
+		return []Record{}, fmt.Errorf("Reading record: %v", err)
 	}
 
 	var result []Record
@@ -106,9 +135,114 @@ Add-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} -CName -H
 	return result, nil
 }
 
+// DeleteRecord deletes DNS record specified
+func DeleteRecord(c *Client, rec Record) error {
+	const tmplscriptA string = `
+(Get-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }}) | ?{$_.RecordData.IPv4Address -match '{{ .Value }}'} | Remove-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Force
+`
+	const tmplscriptCname string = `
+(Get-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }}) | ?{$_.RecordData.HostNameAlias -match '{{ .Value }}'} | Remove-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Force
+`
+	var (
+		pscript string
+		err     error
+	)
+
+	if !RecordExist(c, rec) {
+		return fmt.Errorf("Record not found: %v", rec)
+	}
+
+	switch rec.Type {
+	case "A":
+		pscript, err = tmplExec(rec, tmplscriptA)
+		if err != nil {
+			return fmt.Errorf("Creating template: %v", err)
+		}
+	case "CNAME":
+		pscript, err = tmplExec(rec, tmplscriptCname)
+		if err != nil {
+			return fmt.Errorf("Creating template: %v", err)
+		}
+	}
+
+	_, err = c.ExecutePowerShellScript(pscript)
+	if err != nil {
+		return fmt.Errorf("Executing PowerShell script: %v", err)
+	}
+
+	return nil
+}
+
+// UpdateRecord updates an existing DNS record
+func UpdateRecord(c *Client, rec Record, newValue string, newTTL int64) (Record, error) {
+	const tmplscriptA string = `
+$old = Get-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} | ?{$_.RecordData.IPv4Address -eq '{{ .Value }}'}
+$new = Get-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} | ?{$_.RecordData.IPv4Address -eq '{{ .Value }}'}
+{{ if .NewValue -}}
+$new.RecordData.IPv4Address = [System.Net.IPAddress]::Parse('{{ .NewValue }}')
+{{ end -}}
+{{ if ne .NewTTL 0 -}}
+$new.TimeToLive = New-Timespan -Seconds {{ .NewTTL }}
+{{ end -}}
+Set-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -NewInputObject $new -OldInputObject $old
+`
+	const tmplscriptCname string = `
+$old = Get-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} | ?{$_.RecordData.HostNameAlias -eq '{{ .Value }}'}
+$new = Get-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} | ?{$_.RecordData.HostNameAlias -eq '{{ .Value }}'}
+{{ if .NewValue -}}
+$new.RecordData.HostNameAlias = '{{ .NewValue }}'
+{{ end -}}
+{{ if ne .NewTTL 0 -}}
+$new.TimeToLive = New-Timespan -Seconds {{ .NewTTL }}
+{{ end -}}
+Set-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -NewInputObject $new -OldInputObject $old
+`
+	var (
+		pscript string
+		err     error
+	)
+
+	if !RecordExist(c, rec) {
+		return Record{}, fmt.Errorf("Record not found: %v", rec.Name)
+	}
+	rec, err = ReadRecord(c, rec)
+	if err != nil {
+		return Record{}, fmt.Errorf("Reading record: %v", err)
+	}
+	rec.NewValue = newValue
+	rec.NewTTL = newTTL
+	switch rec.Type {
+	case "A":
+		pscript, err = tmplExec(rec, tmplscriptA)
+		if err != nil {
+			return Record{}, fmt.Errorf("Createing template: %v", err)
+		}
+	case "CNAME":
+		pscript, err = tmplExec(rec, tmplscriptCname)
+		if err != nil {
+			return Record{}, fmt.Errorf("Createing template: %v", err)
+		}
+	}
+
+	_, err = c.ExecutePowerShellScript(pscript)
+	if err != nil {
+		return Record{}, fmt.Errorf("Excuting PowerShell script: %v", err)
+	}
+	if rec.NewValue != "" {
+		rec.Value = rec.NewValue
+	}
+
+	rec, err = ReadRecord(c, rec)
+	if err != nil {
+		return Record{}, fmt.Errorf("Reading updated record: %v", err)
+	}
+
+	return rec, nil
+}
+
 // RecordExist returns if record exists or not
 func RecordExist(c *Client, rec Record) bool {
-	records, _ := ReadRecord(c, rec)
+	records, _ := ReadRecords(c, rec)
 	if len(records) > 0 {
 		for _, v := range records {
 			if v.Value == rec.Value {
