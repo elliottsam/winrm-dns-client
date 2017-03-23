@@ -5,5 +5,5 @@ matrix:
   allow_failures:
   - go: tip
 script:
-  - go vet ./...
-  - go test -v ./...
+  - for pkg in $(go list | grep -v /vendor/);do go vet $pkg; done
+  - for pkg in $(go list | grep -v /vendor/);do go test $pkg; done
