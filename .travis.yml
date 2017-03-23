@@ -1,10 +1,9 @@
 language: go
 go:
   - 1.7.5
-
-before_install:
-  - go get -v github.com/golang/lint/golint
-
+matrix:
+  allow_failures:
+  - go: tip
 script:
-  - ./pre-commit
+  - go vet ./...
   - go test -v ./...
