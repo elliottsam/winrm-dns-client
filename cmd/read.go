@@ -48,7 +48,7 @@ from a Microsoft DNS Zone
 		ClientConfig := dns.GenerateClient(viper.GetString("servername"), viper.GetString("username"), viper.GetString("password"))
 		ClientConfig.ConfigureWinRMClient()
 
-		resp, err := dns.ReadRecords(&ClientConfig, rec)
+		resp, err := ClientConfig.ReadRecords(rec)
 		if err != nil {
 			log.Fatal("Error:", err)
 		}

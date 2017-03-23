@@ -47,7 +47,7 @@ var updateCmd = &cobra.Command{
 		ClientConfig := dns.GenerateClient(viper.GetString("servername"), viper.GetString("username"), viper.GetString("password"))
 		ClientConfig.ConfigureWinRMClient()
 
-		rec, err := dns.UpdateRecord(&ClientConfig, rec, newvalue, newttl)
+		rec, err := ClientConfig.UpdateRecord(rec, newvalue, newttl)
 		if err != nil {
 			log.Fatalf("Error updating record: %v", err)
 		}

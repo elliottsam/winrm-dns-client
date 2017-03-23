@@ -45,7 +45,7 @@ func convertResponse(r []interface{}, origrec Record) *[]Record {
 				Name:    r[i].(map[string]interface{})["HostName"].(string),
 				Type:    r[i].(map[string]interface{})["RecordType"].(string),
 				Value:   strings.Split(r[i].(map[string]interface{})["RecordData"].(map[string]interface{})["CimInstanceProperties"].([]interface{})[0].(string), "\"")[1],
-				TTL:     r[i].(map[string]interface{})["TimeToLive"].(map[string]interface{})["TotalSeconds"].(float64),
+				TTL:     int64(r[i].(map[string]interface{})["TimeToLive"].(map[string]interface{})["TotalSeconds"].(float64)),
 			}
 			rec.ID = fmt.Sprintf("%s|%s|%s", rec.Dnszone, rec.Name, rec.Value)
 		case string:
@@ -54,7 +54,7 @@ func convertResponse(r []interface{}, origrec Record) *[]Record {
 				Name:    r[i].(map[string]interface{})["HostName"].(string),
 				Type:    r[i].(map[string]interface{})["RecordType"].(string),
 				Value:   strings.Split(r[i].(map[string]interface{})["RecordData"].(map[string]interface{})["CimInstanceProperties"].(string), "\"")[1],
-				TTL:     r[i].(map[string]interface{})["TimeToLive"].(map[string]interface{})["TotalSeconds"].(float64),
+				TTL:     int64(r[i].(map[string]interface{})["TimeToLive"].(map[string]interface{})["TotalSeconds"].(float64)),
 			}
 			rec.ID = fmt.Sprintf("%s|%s|%s", rec.Dnszone, rec.Name, rec.Value)
 		}

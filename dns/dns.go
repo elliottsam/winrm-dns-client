@@ -11,17 +11,17 @@ type Record struct {
 	Name     string
 	Type     string
 	Value    string
-	TTL      float64
+	TTL      int64
 	ID       string
 	NewValue string
 	NewTTL   int64
 }
 
 // ReadRecords returns all DNS records matching query
-func ReadRecords(c *Client, rec Record) ([]Record, error) {
+func (c *Client) ReadRecords(rec Record) ([]Record, error) {
 	// powershell script template to read record from DNS
 	const tmplpscript = `
-Get-DnsServerResourceRecord -ZoneName {{.Dnszone}}{{ if .Name }} -Name {{.Name}}{{end}} | ?{$_.RecordType -eq 'A' -or $_.RecordType -eq 'CNAME'} | select DistinguishedName, HostName, RecordData, RecordType, TimeToLive | ConvertTo-Json
+Get-DnsServerResourceRecord -ZoneName {{.Dnszone}}{{ if .Name }} -Name {{.Name}}{{end}} | ?{($_.RecordType -eq 'A' -or $_.RecordType -eq 'CNAME') -and $_.HostName -eq '{{ .Name }}'} | select DistinguishedName, HostName, RecordData, RecordType, TimeToLive | ConvertTo-Json
 `
 
 	pscript, err := tmplExec(rec, tmplpscript)
@@ -32,6 +32,9 @@ Get-DnsServerResourceRecord -ZoneName {{.Dnszone}}{{ if .Name }} -Name {{.Name}}
 	if err != nil {
 		return []Record{}, fmt.Errorf("Running PowerShell script: %v", err)
 	}
+	if output.stdout == "" {
+		return []Record{}, fmt.Errorf("No Record found: %v", rec.Name)
+	}
 	output.stdout = makeResponseArray(output.stdout)
 	resp, err := unmarshalResponse(output.stdout)
 	if err != nil {
@@ -41,10 +44,10 @@ Get-DnsServerResourceRecord -ZoneName {{.Dnszone}}{{ if .Name }} -Name {{.Name}}
 }
 
 // ReadRecord performs DNS Record lookup from server
-func ReadRecord(c *Client, rec Record) (Record, error) {
+func (c *Client) ReadRecord(rec Record) (Record, error) {
 	// powershell script template to read record from DNS
 	const tmplpscript = `
-Get-DnsServerResourceRecord -ZoneName {{.Dnszone}}{{ if .Name }} -Name {{.Name}}{{end}} | ?{$_.RecordType -eq 'A' -or $_.RecordType -eq 'CNAME'} | select DistinguishedName, HostName, RecordData, RecordType, TimeToLive | ConvertTo-Json
+Get-DnsServerResourceRecord -ZoneName {{.Dnszone}}{{ if .Name }} -Name {{.Name}}{{end}} | ?{($_.RecordType -eq 'A' -or $_.RecordType -eq 'CNAME') -and $_.HostName -eq '{{ .Name }}'} | select DistinguishedName, HostName, RecordData, RecordType, TimeToLive | ConvertTo-Json
 `
 
 	pscript, err := tmplExec(rec, tmplpscript)
@@ -55,7 +58,11 @@ Get-DnsServerResourceRecord -ZoneName {{.Dnszone}}{{ if .Name }} -Name {{.Name}}
 	if err != nil {
 		return Record{}, fmt.Errorf("Running PowerShell script: %v", err)
 	}
+	if output.stdout == "" {
+		return Record{}, fmt.Errorf("No Record found: %v", rec.Name)
+	}
 	output.stdout = makeResponseArray(output.stdout)
+
 	resp, err := unmarshalResponse(output.stdout)
 	if err != nil {
 		return Record{}, fmt.Errorf("Unmarshalling response: %v", err)
@@ -69,7 +76,7 @@ Get-DnsServerResourceRecord -ZoneName {{.Dnszone}}{{ if .Name }} -Name {{.Name}}
 }
 
 // ReadRecordfromID retrieves specifc DNS record based on record ID
-func ReadRecordfromID(c *Client, recID string) (Record, error) {
+func (c *Client) ReadRecordfromID(recID string) (Record, error) {
 	id := strings.Split(recID, "|")
 	if len(id) != 3 {
 		return Record{}, fmt.Errorf("ID is incorrect")
@@ -79,7 +86,7 @@ func ReadRecordfromID(c *Client, recID string) (Record, error) {
 		Name:    id[1],
 		Value:   id[2],
 	}
-	result, err := ReadRecords(c, rec)
+	result, err := c.ReadRecords(rec)
 	if err != nil {
 		return Record{}, fmt.Errorf("Reading record: %v", err)
 	}
@@ -92,7 +99,7 @@ func ReadRecordfromID(c *Client, recID string) (Record, error) {
 }
 
 // CreateRecord creates new DNS records on server
-func CreateRecord(c *Client, rec Record) ([]Record, error) {
+func (c *Client) CreateRecord(rec Record) ([]Record, error) {
 	const tmplscriptA = `
 Add-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} -A -IPv4Address {{ .Value }} -TimeToLive (New-TimeSpan -Seconds {{ .TTL }})
 `
@@ -104,7 +111,7 @@ Add-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} -CName -H
 		err     error
 	)
 
-	if RecordExist(c, rec) {
+	if c.RecordExist(rec) {
 		return []Record{}, fmt.Errorf("Record already exists: %v", rec)
 	}
 	rec.ID = fmt.Sprintf("%s|%s|%s", rec.Dnszone, rec.Name, rec.Value)
@@ -124,7 +131,7 @@ Add-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} -CName -H
 	if err != nil {
 		return []Record{}, fmt.Errorf("Executing PowerShell script: %v", err)
 	}
-	record, err := ReadRecordfromID(c, rec.ID)
+	record, err := c.ReadRecordfromID(rec.ID)
 	if err != nil {
 		return []Record{}, fmt.Errorf("Reading record: %v", err)
 	}
@@ -136,19 +143,19 @@ Add-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} -CName -H
 }
 
 // DeleteRecord deletes DNS record specified
-func DeleteRecord(c *Client, rec Record) error {
+func (c *Client) DeleteRecord(rec Record) error {
 	const tmplscriptA string = `
-(Get-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }}) | ?{$_.RecordData.IPv4Address -match '{{ .Value }}'} | Remove-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Force
+(Get-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }}) | ?{$_.HostName -eq '{{ .Name }}' -and $_.RecordData.IPv4Address -match '{{ .Value }}'} | Remove-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Force
 `
 	const tmplscriptCname string = `
-(Get-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }}) | ?{$_.RecordData.HostNameAlias -match '{{ .Value }}'} | Remove-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Force
+(Get-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }}) | ?{$_.HostName -eq '{{ .Name }}' -and $_.RecordData.HostNameAlias -match '{{ .Value }}'} | Remove-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Force
 `
 	var (
 		pscript string
 		err     error
 	)
 
-	if !RecordExist(c, rec) {
+	if !c.RecordExist(rec) {
 		return fmt.Errorf("Record not found: %v", rec)
 	}
 
@@ -174,10 +181,10 @@ func DeleteRecord(c *Client, rec Record) error {
 }
 
 // UpdateRecord updates an existing DNS record
-func UpdateRecord(c *Client, rec Record, newValue string, newTTL int64) (Record, error) {
+func (c *Client) UpdateRecord(rec Record, newValue string, newTTL int64) (Record, error) {
 	const tmplscriptA string = `
-$old = Get-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} | ?{$_.RecordData.IPv4Address -eq '{{ .Value }}'}
-$new = Get-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} | ?{$_.RecordData.IPv4Address -eq '{{ .Value }}'}
+$old = Get-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} | ?{$_.HostName -eq '{{ .Name }}' -and $_.RecordData.IPv4Address -eq '{{ .Value }}'}
+$new = Get-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} | ?{$_.HostName -eq '{{ .Name }}' -and $_.RecordData.IPv4Address -eq '{{ .Value }}'}
 {{ if .NewValue -}}
 $new.RecordData.IPv4Address = [System.Net.IPAddress]::Parse('{{ .NewValue }}')
 {{ end -}}
@@ -187,8 +194,8 @@ $new.TimeToLive = New-Timespan -Seconds {{ .NewTTL }}
 Set-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -NewInputObject $new -OldInputObject $old
 `
 	const tmplscriptCname string = `
-$old = Get-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} | ?{$_.RecordData.HostNameAlias -eq '{{ .Value }}'}
-$new = Get-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} | ?{$_.RecordData.HostNameAlias -eq '{{ .Value }}'}
+$old = Get-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} | ?{$_.HostName -eq '{{ .Name }}' -and $_.RecordData.HostNameAlias -eq '{{ .Value }}'}
+$new = Get-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} | ?{$_.HostName -eq '{{ .Name }}' -and $_.RecordData.HostNameAlias -eq '{{ .Value }}'}
 {{ if .NewValue -}}
 $new.RecordData.HostNameAlias = '{{ .NewValue }}'
 {{ end -}}
@@ -202,10 +209,10 @@ Set-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -NewInputObject $new -OldIn
 		err     error
 	)
 
-	if !RecordExist(c, rec) {
+	if !c.RecordExist(rec) {
 		return Record{}, fmt.Errorf("Record not found: %v", rec.Name)
 	}
-	rec, err = ReadRecord(c, rec)
+	rec, err = c.ReadRecord(rec)
 	if err != nil {
 		return Record{}, fmt.Errorf("Reading record: %v", err)
 	}
@@ -232,7 +239,7 @@ Set-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -NewInputObject $new -OldIn
 		rec.Value = rec.NewValue
 	}
 
-	rec, err = ReadRecord(c, rec)
+	rec, err = c.ReadRecord(rec)
 	if err != nil {
 		return Record{}, fmt.Errorf("Reading updated record: %v", err)
 	}
@@ -241,8 +248,8 @@ Set-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -NewInputObject $new -OldIn
 }
 
 // RecordExist returns if record exists or not
-func RecordExist(c *Client, rec Record) bool {
-	records, _ := ReadRecords(c, rec)
+func (c *Client) RecordExist(rec Record) bool {
+	records, _ := c.ReadRecords(rec)
 	if len(records) > 0 {
 		for _, v := range records {
 			if v.Value == rec.Value {

@@ -48,12 +48,12 @@ var deleteCmd = &cobra.Command{
 		ClientConfig := dns.GenerateClient(viper.GetString("servername"), viper.GetString("username"), viper.GetString("password"))
 		ClientConfig.ConfigureWinRMClient()
 
-		rec, err := dns.ReadRecord(&ClientConfig, rec)
+		rec, err := ClientConfig.ReadRecord(rec)
 		if err != nil {
 			log.Fatalf("Error reading record: %v", err)
 		}
 
-		if err := dns.DeleteRecord(&ClientConfig, rec); err != nil {
+		if err := ClientConfig.DeleteRecord(rec); err != nil {
 			log.Fatalf("Error deleting record: %v", err)
 		}
 		fmt.Printf("Record: %v deleted\n", rec.Name)

@@ -29,7 +29,7 @@ var (
 	name       string
 	recordType string
 	value      string
-	ttl        float64
+	ttl        int64
 	id         string
 	newvalue   string
 	newttl     int64
