@@ -66,7 +66,7 @@ func init() {
 	updateCmd.PersistentFlags().StringVarP(&recordType, "Type", "t", "", "Type of DNS record to create, this is required")
 	updateCmd.PersistentFlags().StringVarP(&value, "Value", "v", "", "Value of DNS record, this is required")
 	updateCmd.PersistentFlags().StringVarP(&newvalue, "NewValue", "u", "", "Value to update DNS record")
-	updateCmd.PersistentFlags().Int64VarP(&newttl, "NewTTL", "l", 0, "New TTL value to update DNS record")
-	updateCmd.PersistentFlags().StringVarP(&id, "ID", "i", "", "ID of record to delete")
+	updateCmd.PersistentFlags().Float64VarP(&newttl, "NewTTL", "l", 0, "New TTL value to update DNS record")
+	updateCmd.PersistentFlags().StringVarP(&id, "ID", "i", "", "ID of record to update")
 
 }

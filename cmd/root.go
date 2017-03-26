@@ -29,10 +29,10 @@ var (
 	name       string
 	recordType string
 	value      string
-	ttl        int64
+	ttl        float64
 	id         string
 	newvalue   string
-	newttl     int64
+	newttl     float64
 )
 
 // RootCmd represents the base command when called without any subcommands

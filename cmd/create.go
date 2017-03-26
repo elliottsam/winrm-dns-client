@@ -63,6 +63,6 @@ func init() {
 	createCmd.PersistentFlags().StringVarP(&name, "Name", "n", "", "Name of record to create, this is required")
 	createCmd.PersistentFlags().StringVarP(&recordType, "Type", "t", "", "Type of DNS record to create, this is required")
 	createCmd.PersistentFlags().StringVarP(&value, "Value", "v", "", "Value of DNS record, this is required")
-	createCmd.PersistentFlags().Int64VarP(&ttl, "TTL", "l", 900, "TTL for record in seconds")
+	createCmd.PersistentFlags().Float64VarP(&ttl, "TTL", "l", 900, "TTL for record in seconds")
 	createCmd.MarkPersistentFlagRequired("DnsZone")
 }

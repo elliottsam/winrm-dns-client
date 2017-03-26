@@ -3,7 +3,7 @@
 #### Introduction
 
 winrm-dns-client is a CLI and Go library for interacting with remote Microsoft DNS servers, it currently
-utilises WinRM for remote connectivity, in the future when available, I will change this to use OpenSSH.
+utilises WinRM for remote connectivity, in the future when available, I will udpate this to use OpenSSH.
  
 #### Requirements
 In order to use this, the following must be met:
@@ -41,4 +41,14 @@ winrm-dns-client read -d >domain-name> -n <name>
 To create a dns record within a zone
 ```
 winrm-dns-client create -d <domain-name> -n <name> -t <record-type> -v <value> [-l <ttl>]
+```
+To update a dns record within a zone
+```
+winrm-dns-client update -i <record ID> [-u <new value>] [-l <ttl>]
+```
+Either a new value or ttl must be specified
+
+To delete a DNS record within a zone
+```
+winrm-dns-client delete -i <record ID>
 ```

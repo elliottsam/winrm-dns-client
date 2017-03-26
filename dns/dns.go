@@ -11,10 +11,10 @@ type Record struct {
 	Name     string
 	Type     string
 	Value    string
-	TTL      int64
+	TTL      float64
 	ID       string
 	NewValue string
-	NewTTL   int64
+	NewTTL   float64
 }
 
 // ReadRecords returns all DNS records matching query
@@ -181,14 +181,14 @@ func (c *Client) DeleteRecord(rec Record) error {
 }
 
 // UpdateRecord updates an existing DNS record
-func (c *Client) UpdateRecord(rec Record, newValue string, newTTL int64) (Record, error) {
+func (c *Client) UpdateRecord(rec Record, newValue string, newTTL float64) (Record, error) {
 	const tmplscriptA string = `
 $old = Get-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} | ?{$_.HostName -eq '{{ .Name }}' -and $_.RecordData.IPv4Address -eq '{{ .Value }}'}
 $new = Get-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} | ?{$_.HostName -eq '{{ .Name }}' -and $_.RecordData.IPv4Address -eq '{{ .Value }}'}
 {{ if .NewValue -}}
 $new.RecordData.IPv4Address = [System.Net.IPAddress]::Parse('{{ .NewValue }}')
 {{ end -}}
-{{ if ne .NewTTL 0 -}}
+{{ if ne .NewTTL 0.0 -}}
 $new.TimeToLive = New-Timespan -Seconds {{ .NewTTL }}
 {{ end -}}
 Set-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -NewInputObject $new -OldInputObject $old
