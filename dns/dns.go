@@ -199,7 +199,7 @@ $new = Get-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -Name {{ .Name }} | 
 {{ if .NewValue -}}
 $new.RecordData.HostNameAlias = '{{ .NewValue }}'
 {{ end -}}
-{{ if ne .NewTTL 0 -}}
+{{ if ne .NewTTL 0.0 -}}
 $new.TimeToLive = New-Timespan -Seconds {{ .NewTTL }}
 {{ end -}}
 Set-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -NewInputObject $new -OldInputObject $old
@@ -249,7 +249,18 @@ Set-DnsServerResourceRecord -ZoneName {{ .Dnszone }} -NewInputObject $new -OldIn
 
 // RecordExist returns if record exists or not
 func (c *Client) RecordExist(rec Record) bool {
-	records, _ := c.ReadRecords(rec)
+	var records []Record
+
+	if rec.ID != "" {
+		resp, err := c.ReadRecordfromID(rec.ID)
+		if err != nil {
+			return false
+		}
+		records = append(records, resp)
+	} else {
+		records, _ = c.ReadRecords(rec)
+	}
+
 	if len(records) > 0 {
 		for _, v := range records {
 			if v.Value == rec.Value {
