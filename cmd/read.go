@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 
 	"github.com/elliottsam/winrm-dns-client/dns"
 	"github.com/spf13/cobra"
@@ -37,21 +36,31 @@ from a Microsoft DNS Zone
 			fmt.Println("DnsZone or ID are required parameter")
 			os.Exit(1)
 		}
-		var rec dns.Record
-		if id != "" {
-			rec.Dnszone = strings.Split(id, "|")[0]
-			rec.Name = strings.Split(id, "|")[1]
-		} else {
-			rec.Dnszone = dnsZone
-			rec.Name = name
-		}
 		ClientConfig := dns.GenerateClient(viper.GetString("servername"), viper.GetString("username"), viper.GetString("password"))
 		ClientConfig.ConfigureWinRMClient()
 
-		resp, err := ClientConfig.ReadRecords(rec)
-		if err != nil {
-			log.Fatal("Error:", err)
+		var (
+			resp []dns.Record
+			err  error
+		)
+		if id != "" {
+			fmt.Println("Checking record exists")
+			rec, err := ClientConfig.ReadRecordfromID(id)
+			if err != nil {
+				log.Fatal("Error reading record from ID:", err)
+			}
+			resp = append(resp, rec)
+		} else {
+			rec := dns.Record{
+				Dnszone: dnsZone,
+				Name:    name,
+			}
+			resp, err = ClientConfig.ReadRecords(rec)
+			if err != nil {
+				log.Fatal("Error:", err)
+			}
 		}
+
 		dns.OutputTable(resp)
 	},
 }
