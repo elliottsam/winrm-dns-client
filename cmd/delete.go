@@ -19,9 +19,9 @@ import (
 	"log"
 	"strings"
 
-	"github.com/elliottsam/winrm-dns-client/dns"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/stobias123/winrm-dns-client/dns"
 )
 
 // deleteCmd represents the delete command
@@ -31,7 +31,9 @@ var deleteCmd = &cobra.Command{
 	Long:  `Delete DNS record from Microsoft DNS`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var rec dns.Record
-		if id == "" || (dnsZone == "" && name == "" && value == "") {
+		fmt.Println(id)
+		fmt.Println(value)
+		if (dnsZone == "" || name == "" || value == "") && id == "" {
 			log.Fatal("Please specify ID or DnsZone, Name and Value as parameters")
 		}
 

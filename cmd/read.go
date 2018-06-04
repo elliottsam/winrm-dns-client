@@ -19,9 +19,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/elliottsam/winrm-dns-client/dns"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/stobias123/winrm-dns-client/dns"
 )
 
 // readCmd represents the read command

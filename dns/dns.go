@@ -20,9 +20,12 @@ type Record struct {
 // ReadRecords returns all DNS records matching query
 func (c *Client) ReadRecords(rec Record) ([]Record, error) {
 	// powershell script template to read record from DNS
-	const tmplpscript = `
-Get-DnsServerResourceRecord -ZoneName {{.Dnszone}}{{ if .Name }} -Name {{.Name}}{{end}} | ?{($_.RecordType -eq 'A' -or $_.RecordType -eq 'CNAME') -and $_.HostName -eq '{{ .Name }}'} | select DistinguishedName, HostName, RecordData, RecordType, TimeToLive | ConvertTo-Json
-`
+	tmplpscript := "Get-DnsServerResourceRecord -ZoneName {{.Dnszone}}{{ if .Name }} -Name {{.Name}}{{end}} | ?{($_.RecordType -eq 'A' -or $_.RecordType -eq 'CNAME') -and $_.HostName -eq \"{{ .Name }}\"} | select DistinguishedName, HostName, RecordData, RecordType, TimeToLive | ConvertTo-Json"
+
+	if rec.Name == "" {
+		tmplpscript = "Get-DnsServerResourceRecord -ZoneName {{.Dnszone}}{{ if .Name }} -Name {{.Name}}{{end}} | ?{($_.RecordType -eq 'A' -or $_.RecordType -eq 'CNAME') -and $_.HostName -like \"*\"} | select DistinguishedName, HostName, RecordData, RecordType, TimeToLive | ConvertTo-Json"
+
+	}
 
 	pscript, err := tmplExec(rec, tmplpscript)
 	if err != nil {

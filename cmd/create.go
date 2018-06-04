@@ -20,7 +20,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/elliottsam/winrm-dns-client/dns"
+	"github.com/stobias123/winrm-dns-client/dns"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

@@ -28,7 +28,9 @@ func tmplExec(r Record, tp string) (string, error) {
 
 func unmarshalResponse(resp string) ([]interface{}, error) {
 	var data interface{}
-	if err := json.Unmarshal([]byte(resp), &data); err != nil {
+	respBytes := []byte(resp)
+	respBytes = bytes.Replace(respBytes, []byte("\x00"), []byte{}, -1)
+	if err := json.Unmarshal(respBytes, &data); err != nil {
 		return nil, fmt.Errorf("Unmarshalling json: %v", err)
 	}
 	return data.([]interface{}), nil
